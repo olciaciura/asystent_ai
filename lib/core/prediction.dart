@@ -64,7 +64,7 @@ class _PredictionScreenState extends State<PredictionScreen> {
     final messages = _chatHistory.messages;
 
     return Scaffold(
-      backgroundColor: Colors.white30,
+      backgroundColor: AppStyles.backgroundPrediction,
       body: Stack(
         children: [
           Positioned.fill(
@@ -82,7 +82,7 @@ class _PredictionScreenState extends State<PredictionScreen> {
                           : Alignment.centerLeft;
 
                   final background =
-                      message.isUser ? Colors.blue[200] : Colors.grey.shade300;
+                      message.isUser ? Colors.blue[300] : Colors.grey.shade100;
 
                   final textColor =
                       message.isUser ? Colors.white : Colors.black87;
@@ -126,7 +126,6 @@ class _PredictionScreenState extends State<PredictionScreen> {
               ),
             ),
           ),
-
           Align(
             alignment: Alignment.topCenter,
             child: Container(
@@ -136,20 +135,20 @@ class _PredictionScreenState extends State<PredictionScreen> {
                 color: AppStyles.backgroundColor,
                 borderRadius: AppStyles.borderRadius,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 8),
-                  Text('Prediction Chat', style: AppStyles.titleTextStyle),
-                ],
-              ),
+              child: Text('Chat', style: AppStyles.titleTextStyle),
             ),
           ),
-
+          Positioned(
+            top: 45,
+            left: 10,
+            child: FloatingActionButton(
+              onPressed: () => Navigator.pop(context),
+              backgroundColor: AppStyles.backgroundColor,
+              foregroundColor: AppStyles.iconTheme.color,
+              heroTag: 'back',
+              child: Icon(Icons.arrow_back, size: AppStyles.iconTheme.size),
+            ),
+          ),
           Align(
             alignment: Alignment.bottomCenter,
             child: SafeArea(
@@ -163,11 +162,11 @@ class _PredictionScreenState extends State<PredictionScreen> {
                     Expanded(
                       child: TextField(
                         controller: _controller,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.black),
                         decoration: InputDecoration(
                           hintText: 'Ask something...',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          fillColor: Colors.white10,
+                          hintStyle: const TextStyle(color: Colors.grey),
+                          fillColor: Colors.grey[300],
                           filled: true,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),

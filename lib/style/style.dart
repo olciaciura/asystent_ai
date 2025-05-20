@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AppStyles {
   static const Color backgroundColor = Colors.black54;
   static const Color textColor = Colors.white;
-
+  static const Color backgroundPrediction = Colors.white;
   static const EdgeInsets padding = EdgeInsets.symmetric(
     horizontal: 16,
     vertical: 8,
