@@ -1,7 +1,12 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:go_router/go_router.dart';
 
 List<CameraDescription> cameras = [];
 
@@ -14,10 +19,32 @@ void main() async {
 class FlowerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    final GoRouter _router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => CameraScreen()),
+        GoRoute(
+          path: '/preview',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>;
+            final photo = extra['photo'] as File;
+            final onSave = extra['onSave'] as Function(BuildContext);
+            return PhotoPreviewScreen(photo: photo, onSave: onSave);
+          },
+        ),
+        GoRoute(
+          path: '/prediction',
+          builder: (context, state) {
+            final responseMessage = state.extra as String;
+            return PredictionScreen(responseMessage: responseMessage);
+          },
+        ),
+      ],
+    );
+
+    return MaterialApp.router(
       title: 'Flower Application',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: CameraScreen(),
+      routerConfig: _router,
     );
   }
 }
@@ -56,26 +83,56 @@ class _CameraScreenState extends State<CameraScreen> {
       setState(() {
         _capturedPhoto = File(image.path);
       });
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => PhotoPreviewScreen(
-                photo: _capturedPhoto!,
-                onSave: _savePhoto,
-              ),
-        ),
+      context.push(
+        '/preview',
+        extra: {'photo': _capturedPhoto, 'onSave': _savePhoto},
       );
     } catch (e) {
       print(e);
     }
   }
 
+  Future<String> _sendPhotoToEndpoint(File photo) async {
+    try {
+      final uri = Uri.parse('https://small-szyc.fly.dev/predictions');
+      var request = new http.MultipartRequest('POST', uri);
+      final httpImage = http.MultipartFile.fromBytes(
+        'image',
+        photo.readAsBytesSync(),
+        contentType: MediaType('image', 'jpeg'),
+        filename: 'flower.jpg',
+      );
+      request.files.add(httpImage);
+      final response = await request.send();
+
+      if (response.statusCode == 200) {
+        final responseBody = await response.stream.bytesToString();
+        return 'Success: $responseBody';
+      } else if (response.statusCode == 422) {
+        return 'Failed: Unprocessable Entity (422). Ensure the file is a valid JPG or JPEG.';
+      } else {
+        return 'Failed: ${response.statusCode}';
+      }
+    } catch (e) {
+      throw 'Error sending photo: $e';
+    }
+  }
+
   void _savePhoto(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => PredictionScreen()),
-    );
+    if (_capturedPhoto != null) {
+      log("jestem tu");
+      _sendPhotoToEndpoint(_capturedPhoto!)
+          .then((responseMessage) {
+            if (mounted) {
+              context.go('/prediction', extra: responseMessage);
+            }
+          })
+          .catchError((error) {
+            if (mounted) {
+              context.go('/prediction', extra: 'Error: $error');
+            }
+          });
+    }
   }
 
   @override
@@ -120,14 +177,13 @@ class PhotoPreviewScreen extends StatelessWidget {
             children: [
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context);
                   onSave(context);
                 },
                 child: Text('Save'),
               ),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context);
+                  context.pop();
                 },
                 child: Text('Discard'),
               ),
@@ -140,12 +196,16 @@ class PhotoPreviewScreen extends StatelessWidget {
 }
 
 class PredictionScreen extends StatelessWidget {
+  final String responseMessage;
+
+  PredictionScreen({required this.responseMessage});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Prediction')),
       body: Center(
-        child: Text('Predicted Flowers', style: TextStyle(fontSize: 24)),
+        child: Text(responseMessage, style: TextStyle(fontSize: 24)),
       ),
     );
   }
