@@ -25,6 +25,7 @@ class FlowerApp extends StatelessWidget {
       title: 'Flower Application',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: CameraScreen(cameras: cameras),
+
     );
   }
 }
