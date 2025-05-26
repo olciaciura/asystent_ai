@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+export 'style.dart';
 
 class AppStyles {
   static const Color backgroundColor = Colors.black54;
@@ -24,3 +25,42 @@ class AppStyles {
     size: 30,
   );
 }
+
+/// Styl dla całej karty rośliny
+final BoxDecoration plantCardDecoration = BoxDecoration(
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(12),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.1),
+      offset: Offset(0, 2),
+      blurRadius: 6,
+    ),
+  ],
+);
+
+/// Styl dla nagłówków (kluczy)
+final TextStyle keyTextStyle = TextStyle(
+  fontWeight: FontWeight.bold,
+  color: Color(0xFF2A7D2E), // zielony
+  fontSize: 16,
+);
+
+/// Styl dla wartości tekstowych
+final TextStyle valueTextStyle = TextStyle(fontSize: 16, color: Colors.black87);
+
+/// Styl dla elementów listy (np. subkluczy)
+final TextStyle listItemTextStyle = TextStyle(
+  fontSize: 15,
+  color: Colors.black87,
+);
+
+final Map<String, String> iconMap = {
+  'watering': 'fa-tint',
+  'sunlight': 'fa-sun',
+  'fertilizing': 'fa-leaf',
+  'soil': 'fa-seedling',
+  'temperature': 'fa-thermometer-half',
+  'humidity': 'fa-water',
+  'ph': 'fa-vial',
+};

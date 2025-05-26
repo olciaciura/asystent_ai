@@ -1,7 +1,11 @@
 import 'dart:io';
+import 'package:asystent_ai/core/plant_detail.dart';
+import 'package:asystent_ai/core/spinner.dart';
 import 'package:flutter/material.dart';
 import 'package:asystent_ai/style/style.dart';
 import 'package:go_router/go_router.dart';
+import 'package:asystent_ai/core/process_response_message.dart';
+import 'package:flutter_html/flutter_html.dart';
 
 class PredictionScreen extends StatefulWidget {
   final String? imagePath;
@@ -20,6 +24,7 @@ class PredictionScreen extends StatefulWidget {
 class _PredictionScreenState extends State<PredictionScreen> {
   final TextEditingController _controller = TextEditingController();
   final ChatHistory _chatHistory = ChatHistory();
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -37,13 +42,35 @@ class _PredictionScreenState extends State<PredictionScreen> {
     }
   }
 
-  void _sendPhotoResponse() {
-    Future.delayed(const Duration(seconds: 1), () {
+  void _sendPhotoResponse() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    await Future.delayed(const Duration(seconds: 1), () {
+      final List<_ChatMessage> botMessages = [];
+      final dynamic plantList = processResponseMessage(widget.responseMessage);
+      if (plantList is List) {
+        for (var item in plantList) {
+          if (item is Map<String, dynamic>) {
+            botMessages.add(_ChatMessage(plantData: item, isUser: false));
+          } else if (item is String) {
+            botMessages.add(_ChatMessage(text: item, isUser: false));
+          }
+        }
+      } else {
+        // Jeśli responseMessage nie jest listą, obsłuż jako pojedynczy tekst
+        if (plantList is String) {
+          botMessages.add(_ChatMessage(text: plantList, isUser: false));
+        }
+      }
+
       setState(() {
+        _isLoading = false;
+        _chatHistory.messages.addAll(botMessages);
         _chatHistory.messages.add(
           _ChatMessage(
-            text:
-                "I see the photo you sent! What would you like to know about it?",
+            text: "Do you want to know something about it?",
             isUser: false,
           ),
         );
@@ -70,134 +97,166 @@ class _PredictionScreenState extends State<PredictionScreen> {
     final messages = _chatHistory.messages;
 
     return Scaffold(
-      backgroundColor: AppStyles.backgroundPrediction,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 70),
-              child: ListView.builder(
-                reverse: true,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[messages.length - 1 - index];
-                  final alignment =
-                      message.isUser
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft;
+      backgroundColor:
+          _isLoading
+              ? AppStyles.backgroundColor
+              : AppStyles.backgroundPrediction,
+      body:
+          _isLoading
+              ? const Center(child: Spinner())
+              : Stack(
+                children: [
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 70),
+                      child: ListView.builder(
+                        reverse: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final message = messages[messages.length - 1 - index];
+                          final alignment =
+                              message.isUser
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft;
 
-                  final background =
-                      message.isUser ? Colors.blue[300] : Colors.grey.shade100;
+                          final background =
+                              message.isUser
+                                  ? AppStyles.backgroundColor
+                                  : Colors.grey.shade100;
 
-                  final textColor =
-                      message.isUser ? Colors.white : Colors.black87;
+                          final textColor =
+                              message.isUser ? Colors.white : Colors.black87;
 
-                  if (message.imagePath != null) {
-                    return Align(
-                      alignment: alignment,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.file(
-                            File(message.imagePath!),
-                            width: 200,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                          if (message.imagePath != null) {
+                            // wyświetlanie obrazu (bez zmian)
+                            return Align(
+                              alignment: alignment,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Image.file(
+                                    File(message.imagePath!),
+                                    width: 200,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                            );
+                          } else if (message.plantData != null) {
+                            // wyświetlanie danych rośliny jako widgetu
+                            return Align(
+                              alignment: alignment,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: background,
+                                  borderRadius: AppStyles.borderRadius,
+                                ),
+                                width: MediaQuery.of(context).size.width * 0.75,
+                                child: PlantDetailsWidget(
+                                  plant: message.plantData!,
+                                ),
+                              ),
+                            );
+                          } else {
+                            // wyświetlanie zwykłego tekstu
+                            return Align(
+                              alignment: alignment,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: background,
+                                  borderRadius: AppStyles.borderRadius,
+                                ),
+                                child: Text(
+                                  message.text ?? '',
+                                  style: TextStyle(color: textColor),
+                                ),
+                              ),
+                            );
+                          }
+                        },
                       ),
-                    );
-                  } else {
-                    return Align(
-                      alignment: alignment,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 50),
+                      padding: AppStyles.padding,
+                      decoration: BoxDecoration(
+                        color: AppStyles.backgroundColor,
+                        borderRadius: AppStyles.borderRadius,
+                      ),
+                      child: Text('Chat', style: AppStyles.titleTextStyle),
+                    ),
+                  ),
+                  Positioned(
+                    top: 45,
+                    left: 10,
+                    child: FloatingActionButton(
+                      onPressed: () => context.go('/'),
+                      backgroundColor: AppStyles.backgroundColor,
+                      foregroundColor: AppStyles.iconTheme.color,
+                      heroTag: 'back',
+                      child: Icon(
+                        Icons.arrow_back,
+                        size: AppStyles.iconTheme.size,
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: SafeArea(
+                      child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,
                         ),
-                        decoration: BoxDecoration(
-                          color: background,
-                          borderRadius: AppStyles.borderRadius,
-                        ),
-                        child: Text(
-                          message.text ?? '',
-                          style: TextStyle(color: textColor),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _controller,
+                                style: const TextStyle(color: Colors.black),
+                                decoration: InputDecoration(
+                                  hintText: 'Ask something...',
+                                  hintStyle: const TextStyle(
+                                    color: Colors.grey,
+                                  ),
+                                  fillColor: Colors.grey[300],
+                                  filled: true,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                                textInputAction: TextInputAction.send,
+                                onSubmitted: (_) => _sendMessage(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FloatingActionButton(
+                              mini: true,
+                              onPressed: _sendMessage,
+                              backgroundColor: AppStyles.backgroundColor,
+                              foregroundColor: AppStyles.iconTheme.color,
+                              child: const Icon(Icons.send),
+                            ),
+                          ],
                         ),
                       ),
-                    );
-                  }
-                },
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: Container(
-              margin: const EdgeInsets.only(top: 50),
-              padding: AppStyles.padding,
-              decoration: BoxDecoration(
-                color: AppStyles.backgroundColor,
-                borderRadius: AppStyles.borderRadius,
-              ),
-              child: Text('Chat', style: AppStyles.titleTextStyle),
-            ),
-          ),
-          Positioned(
-            top: 45,
-            left: 10,
-            child: FloatingActionButton(
-              onPressed: () => context.go('/'),
-              backgroundColor: AppStyles.backgroundColor,
-              foregroundColor: AppStyles.iconTheme.color,
-              heroTag: 'back',
-              child: Icon(Icons.arrow_back, size: AppStyles.iconTheme.size),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        style: const TextStyle(color: Colors.black),
-                        decoration: InputDecoration(
-                          hintText: 'Ask something...',
-                          hintStyle: const TextStyle(color: Colors.grey),
-                          fillColor: Colors.grey[300],
-                          filled: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _sendMessage(),
-                      ),
                     ),
-                    const SizedBox(width: 8),
-                    FloatingActionButton(
-                      mini: true,
-                      onPressed: _sendMessage,
-                      backgroundColor: AppStyles.backgroundColor,
-                      foregroundColor: AppStyles.iconTheme.color,
-                      child: const Icon(Icons.send),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -205,9 +264,15 @@ class _PredictionScreenState extends State<PredictionScreen> {
 class _ChatMessage {
   final String? text;
   final String? imagePath;
+  final Map<String, dynamic>? plantData;
   final bool isUser;
 
-  _ChatMessage({this.text, this.imagePath, required this.isUser});
+  _ChatMessage({
+    this.text,
+    this.imagePath,
+    this.plantData,
+    required this.isUser,
+  });
 }
 
 class ChatHistory {

@@ -71,7 +71,7 @@ class _CameraScreenState extends State<CameraScreen> {
         extra: {'photo': photoFile, 'onSave': _savePhoto},
       );
     } catch (e) {
-      //print(e);
+      log(e.toString());
     }
   }
 
