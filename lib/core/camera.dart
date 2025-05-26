@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'dart:io';
-import 'photo.dart';
-import 'prediction.dart';
+// import 'photo.dart';
+// import 'prediction.dart';
 import 'package:asystent_ai/style/style.dart';
 
 class CameraScreen extends StatefulWidget {
@@ -27,6 +31,7 @@ class _CameraScreenState extends State<CameraScreen> {
     _cameraController = CameraController(
       widget.cameras[0],
       ResolutionPreset.medium,
+      imageFormatGroup: ImageFormatGroup.jpeg,
     );
     _initializeControllerFuture = _cameraController.initialize();
   }
@@ -60,33 +65,74 @@ class _CameraScreenState extends State<CameraScreen> {
       await completer.future;
       imageStream.removeListener(listener);
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) =>
-                  PhotoPreviewScreen(photo: photoFile, onSave: _savePhoto),
-        ),
+      // Use GoRouter for navigation
+      context.push(
+        '/preview',
+        extra: {'photo': photoFile, 'onSave': _savePhoto},
       );
     } catch (e) {
       //print(e);
     }
   }
 
+  Future<String> _sendPhotoToEndpoint(File photo) async {
+    try {
+      final uri = Uri.parse('https://small-szyc.fly.dev/predictions');
+      var request = http.MultipartRequest('POST', uri);
+      final httpImage = http.MultipartFile.fromBytes(
+        'image',
+        photo.readAsBytesSync(),
+        contentType: MediaType('image', 'jpeg'),
+        filename: 'flower.jpg',
+      );
+      request.files.add(httpImage);
+      final response = await request.send();
+
+      if (response.statusCode == 200) {
+        final responseBody = await response.stream.bytesToString();
+        return 'Success: $responseBody';
+      } else if (response.statusCode == 422) {
+        return 'Failed: Unprocessable Entity (422). Ensure the file is a valid JPG or JPEG.';
+      } else {
+        return 'Failed: ${response.statusCode}';
+      }
+    } catch (e) {
+      throw 'Error sending photo: $e';
+    }
+  }
+
   void _predictionScreen() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => PredictionScreen()),
-    );
+    // Use GoRouter for navigation
+    context.go('/prediction');
   }
 
   void _savePhoto(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PredictionScreen(imagePath: _capturedPhoto?.path),
-      ),
-    );
+    if (_capturedPhoto != null) {
+      _sendPhotoToEndpoint(_capturedPhoto!)
+          .then((responseMessage) {
+            if (mounted) {
+              context.go(
+                '/prediction',
+                extra: {
+                  'responseMessage': responseMessage,
+                  'imagePath': _capturedPhoto!.path,
+                },
+              );
+            }
+          })
+          .catchError((error) {
+            log('Error sending photo: $error');
+            if (mounted) {
+              context.go(
+                '/prediction',
+                extra: {
+                  'responseMessage': 'Error: $error',
+                  'imagePath': _capturedPhoto!.path,
+                },
+              );
+            }
+          });
+    }
   }
 
   @override
@@ -96,14 +142,20 @@ class _CameraScreenState extends State<CameraScreen> {
         future: _initializeControllerFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
+            // Safely check _cameraController.value.isInitialized before accessing previewSize
+            if (!_cameraController.value.isInitialized ||
+                _cameraController.value.previewSize == null) {
+              return const Center(child: Text('Camera preview not available'));
+            }
+            final previewSize = _cameraController.value.previewSize!;
             return Stack(
               children: [
                 SizedBox.expand(
                   child: FittedBox(
                     fit: BoxFit.cover,
                     child: SizedBox(
-                      width: _cameraController.value.previewSize!.height,
-                      height: _cameraController.value.previewSize!.width,
+                      width: previewSize.height,
+                      height: previewSize.width,
                       child: CameraPreview(_cameraController),
                     ),
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:asystent_ai/style/style.dart';
+import 'package:go_router/go_router.dart';
 
 class PhotoPreviewScreen extends StatelessWidget {
   final File photo;
@@ -40,7 +41,7 @@ class PhotoPreviewScreen extends StatelessWidget {
               backgroundColor: AppStyles.backgroundColor,
               foregroundColor: AppStyles.iconTheme.color,
               onPressed: () {
-                Navigator.pop(context);
+                context.pop();
               },
               child: Icon(Icons.close, size: AppStyles.iconTheme.size),
               tooltip: 'Discard',
@@ -55,7 +56,6 @@ class PhotoPreviewScreen extends StatelessWidget {
               backgroundColor: AppStyles.backgroundColor,
               foregroundColor: AppStyles.iconTheme.color,
               onPressed: () {
-                Navigator.pop(context);
                 onSave(context);
               },
               child: Icon(Icons.check, size: AppStyles.iconTheme.size),

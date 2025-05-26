@@ -1,11 +1,17 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:asystent_ai/style/style.dart';
+import 'package:go_router/go_router.dart';
 
 class PredictionScreen extends StatefulWidget {
   final String? imagePath;
+  final dynamic responseMessage;
 
-  const PredictionScreen({Key? key, this.imagePath}) : super(key: key);
+  const PredictionScreen({
+    Key? key,
+    this.imagePath,
+    required this.responseMessage,
+  }) : super(key: key);
 
   @override
   _PredictionScreenState createState() => _PredictionScreenState();
@@ -142,7 +148,7 @@ class _PredictionScreenState extends State<PredictionScreen> {
             top: 45,
             left: 10,
             child: FloatingActionButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => context.go('/'),
               backgroundColor: AppStyles.backgroundColor,
               foregroundColor: AppStyles.iconTheme.color,
               heroTag: 'back',
