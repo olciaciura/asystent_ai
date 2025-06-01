@@ -8,13 +8,15 @@ export 'process_response_message.dart' show processResponseMessage;
 
 List<dynamic> extractPredictions(String responseMessage) {
   final jsonPart = responseMessage.replaceFirst('Success: ', '').trim();
-  final List<dynamic> decoded = jsonDecode(jsonPart);
-  return decoded;
+  final Map<String, dynamic> decoded = jsonDecode(jsonPart);
+  final List<dynamic> predictions = decoded['results'] ?? [];
+  return predictions;
 }
 
 dynamic processResponseMessage(dynamic responseMessage) {
-  if (responseMessage == null) {
-    return "";
+  if (responseMessage == null ||
+      !responseMessage.toString().startsWith('Success: ')) {
+    return responseMessage.toString();
   }
 
   final List<dynamic> predictions = extractPredictions(
