@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'package:asystent_ai/core/plant_detail.dart';
 import 'package:asystent_ai/core/spinner.dart';
@@ -6,6 +8,8 @@ import 'package:asystent_ai/style/style.dart';
 import 'package:go_router/go_router.dart';
 import 'package:asystent_ai/core/process_response_message.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class PredictionScreen extends StatefulWidget {
   final String? imagePath;
@@ -78,18 +82,74 @@ class _PredictionScreenState extends State<PredictionScreen> {
     });
   }
 
+  Future<String> _sendMessageToEndpoint(String text) async {
+    try {
+      final uri = Uri.parse('https://small-szyc.fly.dev/chat/generate');
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'messages': [
+            {"role": "assistant", "content": text},
+          ],
+          "model": "gpt-4o-mini",
+          "maxTokens": 5000,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = response.body;
+        return 'Success: $responseBody';
+      } else {
+        return 'Failed: ${response.statusCode}';
+      }
+    } catch (e) {
+      throw 'Error sending message: $e';
+    }
+  }
+
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
     setState(() {
       _chatHistory.messages.add(_ChatMessage(text: text, isUser: true));
-      _chatHistory.messages.add(
-        _ChatMessage(text: "Bot response to: \"$text\"", isUser: false),
-      );
+    });
+
+    _sendMessageToEndpoint(
+      widget.responseMessage.toString() + ' Question: ' + text,
+    ).then((response) {
+      String? markdownContent;
+
+      if (response.startsWith('Success: ')) {
+        try {
+          final jsonPart = response.replaceFirst('Success: ', '').trim();
+          log('Response: $jsonPart');
+          final Map<String, dynamic> decoded = jsonDecode(jsonPart);
+          markdownContent = decoded['message']['content']?.toString();
+        } catch (e) {
+          markdownContent = 'Error parsing response';
+        }
+      } else {
+        markdownContent = response;
+      }
+
+      setState(() {
+        _chatHistory.messages.add(
+          _ChatMessage(markdown: markdownContent, isUser: false),
+        );
+      });
     });
 
     _controller.clear();
+    return;
+
+    // setState(() {
+    //   _chatHistory.messages.add(_ChatMessage(text: text, isUser: true));
+    //   _chatHistory.messages.add(_ChatMessage(text: response, isUser: false));
+    // });
+
+    // _controller.clear();
   }
 
   @override
@@ -158,6 +218,25 @@ class _PredictionScreenState extends State<PredictionScreen> {
                                 width: MediaQuery.of(context).size.width * 0.75,
                                 child: PlantDetailsWidget(
                                   plant: message.plantData!,
+                                ),
+                              ),
+                            );
+                          } else if (message.markdown != null) {
+                            // wyświetlanie markdown jako HTML
+                            return Align(
+                              alignment: alignment,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: background,
+                                  borderRadius: AppStyles.borderRadius,
+                                ),
+                                child: MarkdownBody(
+                                  data: message.markdown ?? '',
                                 ),
                               ),
                             );
@@ -263,12 +342,14 @@ class _PredictionScreenState extends State<PredictionScreen> {
 
 class _ChatMessage {
   final String? text;
+  final String? markdown;
   final String? imagePath;
   final Map<String, dynamic>? plantData;
   final bool isUser;
 
   _ChatMessage({
     this.text,
+    this.markdown,
     this.imagePath,
     this.plantData,
     required this.isUser,
